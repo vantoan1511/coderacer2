@@ -1,30 +1,42 @@
-name: Build
+name: Build and Analyze
+
 on:
   push:
     branches:
       - main
   pull_request:
     types: [opened, synchronize, reopened]
+
 jobs:
   build:
     name: Build
     runs-on: windows-latest
+
     env:
-      BUILD_WRAPPER_OUT_DIR: build_wrapper_output_directory # Directory where build-wrapper output will be placed
+      BUILD_WRAPPER_OUT_DIR: bw-output # Thay đổi đường dẫn thư mục đầu ra tại đây
+
     steps:
       - uses: actions/checkout@v3
         with:
-          fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
+          fetch-depth: 0
+
       - name: Install sonar-scanner and build-wrapper
-        uses: SonarSource/sonarcloud-github-c-cpp@v1
+        uses: SonarSource/sonarcloud-github-action@master
+
       - name: Run build-wrapper
         run: |
           New-Item -ItemType directory -Path build
           cmake -S . -B build
-          build-wrapper-win-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} cmake --build build/ --config Release
+          & $env:BUILD_WRAPPER_OUT_DIR/build-wrapper-win-x86-64.exe --out-dir $env:BUILD_WRAPPER_OUT_DIR cmake --build build/ --config Release
+
       - name: Run sonar-scanner
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONARCLOUD_TOKEN }} # Put the name of your token here
+          SONAR_TOKEN: ${{ secrets.SONARCLOUD_TOKEN }}
         run: |
-          sonar-scanner --define sonar.cfamily.build-wrapper-output="${{ env.BUILD_WRAPPER_OUT_DIR }}"
+          & $env:SONAR_SCANNER_HOME/bin/sonar-scanner.bat \
+          -D"sonar.organization=vantoan1511" \
+          -D"sonar.projectKey=vantoan1511_coderacer2" \
+          -D"sonar.sources=." \
+          -D"sonar.cfamily.build-wrapper-output=$env:BUILD_WRAPPER_OUT_DIR" \
+          -D"sonar.host.url=https://sonarcloud.io"
